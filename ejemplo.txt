@@ -50,6 +50,12 @@ Proyecto Atlas (app móvil)
         - Beta con 20 usuarios
         * Fecha objetivo: finales de noviembre
 
+==================== ARCHIVADO ====================
+
+Onboarding de nueva incorporación
+    - [ HECHO ] Dar accesos
+    - [ HECHO ] Explicar repo
+
 Rediseño de la web
     * Objetivo: que se entienda en 5 segundos qué hacemos
     * Diseños: https://ejemplo.com/disenos/rediseno-web
@@ -64,9 +70,3 @@ Rediseño de la web
     - Revisar accesibilidad (contraste, tamaños)
     - Migrar el blog
     - Fecha de lanzamiento: confirmar con dirección
-
-==================== ARCHIVADO ====================
-
-Onboarding de nueva incorporación
-    - [ HECHO ] Dar accesos
-    - [ HECHO ] Explicar repo
