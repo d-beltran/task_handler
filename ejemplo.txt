@@ -1,0 +1,72 @@
+Reunión con cliente X
+    * Martes 10:00
+    - Preparar demo
+
+Hacer un trabajo
+    - Hacer lo otro
+
+    * Hacerlo bien
+    Informe trimestral
+        - [ HECHO ] Recopilar métricas
+        - Redactar resumen
+        * Plantilla en /home/dani/Documentos/plantilla_informe.odt
+
+
+
+Migración base de datos
+    * Avisar al equipo de soporte
+    * Doc: https://ejemplo.com/docs/migracion-bd
+    - [ HECHO ] Hacer backup de producción
+    - Probar script en staging
+        * falla con tablas grandes, revisar ~/proyectos/migra/log.txt
+        - Partir en lotes
+    - Programar ventana de mantenimiento
+
+Proyecto Atlas (app móvil)
+    * Kickoff 12/09 · responsable: yo
+    * Repo: https://git.ejemplo.com/equipo/atlas
+    * Specs: ~/Documentos/atlas/especificaciones.pdf
+    Backend
+        - [ HECHO ] Diseñar el modelo de datos
+        - [ HECHO ] API de login
+        - API de pedidos
+            * ojo con la paginación, revisar con el equipo de backend
+        - Notificaciones push
+        - Tests de carga
+    Frontend
+        - [ HECHO ] Pantalla de inicio
+        - [ HECHO ] Registro
+        - Carrito
+        - Pagos
+            * usar la pasarela de pago externa, no la nuestra
+        - Modo oscuro
+    Diseño
+        - [ HECHO ] Paleta de colores
+        - Iconos
+        - Animaciones de carga
+    Lanzamiento
+        - Ficha en las tiendas de apps
+        - Capturas de pantalla
+        - Beta con 20 usuarios
+        * Fecha objetivo: finales de noviembre
+
+Rediseño de la web
+    * Objetivo: que se entienda en 5 segundos qué hacemos
+    * Diseños: https://ejemplo.com/disenos/rediseno-web
+    - [ HECHO ] Recopilar feedback de clientes
+    - [ HECHO ] Auditoría de la web actual
+    - Wireframes
+        - [ HECHO ] Home
+        - Página de producto
+        - Contacto
+    - Textos nuevos
+        * Pedir a marketing el tono de marca
+    - Revisar accesibilidad (contraste, tamaños)
+    - Migrar el blog
+    - Fecha de lanzamiento: confirmar con dirección
+
+==================== ARCHIVADO ====================
+
+Onboarding de nueva incorporación
+    - [ HECHO ] Dar accesos
+    - [ HECHO ] Explicar repo

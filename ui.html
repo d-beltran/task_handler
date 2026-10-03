@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ · Notas</title>
+<style>
+  :root {
+    --bg: #fbf7ef; --fg: #3d3229; --muted: #a39482; --done: #bfb3a2; --line: #ece2d0;
+    --accent: #4f7fd1; --hover: #f4ecdd; --comment: #8a7a68; --drop: #e0a243; --wait: #9a8754;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #211d1a; --fg: #ece3d6; --muted: #8f8172; --done: #665c52; --line: #3a322c;
+      --accent: #85a9e8; --hover: #2c2622; --comment: #b0a090; --drop: #e0a243; --wait: #bfad7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 8px; padding: 10px 24px; }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0 auto 0 0; }
+  #status { color: var(--muted); font-size: 12px; min-width: 70px; text-align: right; }
+  #search { font: inherit; font-size: 13px; width: 220px; padding: 3px 10px; color: var(--fg); background: var(--bg);
+            border: 1px solid var(--line); border-radius: 6px; outline: none; }
+  #search:focus { border-color: var(--drop); }
+  #search-count { color: var(--muted); font-size: 12px; min-width: 18px; }
+  mark { background: #f6dc8a; color: #3d3229; border-radius: 2px; padding: 0 1px; }
+  #noresults { color: var(--muted); padding: 24px 4px; }
+  button { font: inherit; font-size: 13px; color: var(--fg); background: transparent; border: 1px solid var(--line);
+           border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  button:hover { background: var(--hover); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px 24px 80px; }
+
+  .node > .children { margin-left: 22px; border-left: 1px solid var(--line); padding-left: 4px; }
+  .row { display: flex; align-items: flex-start; gap: 6px; padding: 1px 4px; border-radius: 5px; }
+  .row:hover { background: var(--hover); }
+  .node.dragging { opacity: .4; }
+  #dropline { position: fixed; height: 2px; background: var(--drop); border-radius: 1px; pointer-events: none; z-index: 5; }
+  #ctxmenu { position: fixed; z-index: 10; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+             box-shadow: 0 4px 16px rgba(0,0,0,.25); padding: 4px; min-width: 160px; font-size: 13px; }
+  #ctxmenu div { padding: 5px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+  #ctxmenu div:hover { background: var(--hover); }
+  .fold { width: 14px; flex: none; color: var(--muted); cursor: pointer; user-select: none; text-align: center; }
+  .handle { flex: none; color: var(--muted); cursor: grab; user-select: none; opacity: 0; font-size: 12px; padding-top: 2px; }
+  .row:hover .handle { opacity: 1; }
+  .text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+  input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; flex: none;
+                        margin: 4px 0 0; border: 1.5px solid var(--muted); border-radius: 3px;
+                        background: transparent; position: relative; cursor: pointer; }
+  input[type=checkbox]:checked { background: var(--done); border-color: var(--done); }
+  input[type=checkbox]:checked::after { content: ""; position: absolute; left: 3.5px; top: 0.5px; width: 4px; height: 8px;
+                                        border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .row input.edit { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent);
+                    border-radius: 4px; padding: 0 4px; outline: none; }
+  .add { flex: none; opacity: 0; border: none; padding: 0 6px; color: var(--muted); }
+  .row:hover .add { opacity: 1; }
+
+  .top > .row { margin-top: 12px; align-items: center; }
+  .top > .row > .text { font-weight: 600; font-size: 16px; }
+  .top > .children { margin-left: 27px; }
+  .pile { width: 48px; height: 48px; flex: none; cursor: pointer; user-select: none; -webkit-user-drag: none;
+          image-rendering: pixelated; transition: transform .12s; }
+  .pile:hover { transform: translateY(-2px) rotate(-3deg); }
+  .pile:active { cursor: grabbing; }
+  .archived .pile { filter: grayscale(.8); opacity: .6; }
+  .comment > .row > .text { color: var(--comment); font-style: italic; }
+  .done .text, .done .text a { color: var(--done) !important; }
+  .done > .row > .text { text-decoration: line-through; text-decoration-color: var(--done); }
+  .archived .text, .archived .text a { color: var(--done) !important; }
+  /* En espera se hereda: todo lo que hay dentro del bloque también se tiñe. */
+  .waiting .row > .text, .waiting .row > .text a { color: var(--wait); }
+  .wait-icon { width: 16px; height: 16px; flex: none; margin-top: 3px; image-rendering: pixelated; -webkit-user-drag: none; }
+  .top > .row > .wait-icon { margin-top: 0; }
+  .row input.edit { font-weight: inherit; font-size: inherit; }
+  .top.done > .row > .text { text-decoration: none; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  #archive-head { margin-top: 36px; padding-top: 10px; border-top: 2px dashed var(--line); color: var(--muted);
+                  font-size: 13px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 8px; }
+  .archive-icon { width: 36px; height: 36px; image-rendering: pixelated; -webkit-user-drag: none; transition: transform .12s; }
+  #archive-head:hover .archive-icon { transform: translateY(-2px) rotate(-3deg); }
+  #raw { width: 100%; height: calc(100vh - 140px); font: 14px/1.5 ui-monospace, "Ubuntu Mono", monospace;
+         background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; tab-size: 4; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 40px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <span id="status"></span>
+  <input id="search" type="search" placeholder="Buscar… (Ctrl+F)" spellcheck="false">
+  <span id="search-count"></span>
+  <button id="btn-new" title="Añadir un bloque nuevo arriba del todo">+ Bloque</button>
+  <button id="btn-collapse" title="Recoger todos los bloques">Recoger</button>
+  <button id="btn-expand" title="Desplegar todos los bloques">Desplegar</button>
+  <button id="btn-raw" title="Editar el TXT en crudo">TXT</button>
+</header>
+<main>
+  <div id="tree">
+    <div id="active"></div>
+    <div id="noresults" class="hidden">Nada coincide con la búsqueda.</div>
+    <div id="archive-head"></div>
+    <div id="archived"></div>
+    <p class="hint">Doble clic en una línea para editarla · Enter: guardar la línea · Tab / Shift+Tab: indentar ·
+      Esc: cancelar · Vaciar una línea la borra · Clic en el icono de un proyecto: desplegar/recoger · Mantén y arrastra el icono (o ⠿) para reordenar · Clic derecho en una línea para ponerla en espera · Clic derecho en la cabecera de un bloque para archivarlo · Ctrl+F: buscar · Ctrl+Z: deshacer · Ctrl+Shift+Z: rehacer</p>
+  </div>
+  <div id="dropline" class="hidden"></div>
+  <div id="ctxmenu" class="hidden"></div>
+  <div id="rawview" class="hidden">
+    <textarea id="raw" spellcheck="false"></textarea>
+    <p><button id="raw-save">Guardar</button> <button id="raw-cancel">Cancelar</button></p>
+  </div>
+</main>
+<script>
+"use strict";
+const SEP = "==================== ARCHIVADO ====================";
+const SEP_RE = /^\s*=+\s*ARCHIVADO\s*=+\s*$/i;
+const DONE_RE = /\s*\[\s*HECHO\s*\]/i;
+const DONE_MARK = "[ HECHO ]";
+const WAIT_RE = /\s*\[\s*EN\s+ESPERA\s*\]/i;
+const WAIT_MARK = "[ EN ESPERA ]";
+const FOLD_MARK = "[+]";              // al final de una línea: bloque recogido en la interfaz
+const FOLD_RE = /\s*\[\+\]\s*$/;
+const TASK_RE = /^-(\s|$)/;
+const LINK_RE = /((?:https?|file):\/\/[^\s<>"]+|(?<=^|\s)~?\/[^\s\/][^\s]*)/g;
+
+// ---------- Modelo: árbol de nodos a partir de la indentación ----------
+// Nodo: {id, indent, text, blank, children}. Las líneas en blanco son nodos
+// "blank" que no se muestran, pero se conservan para no alterar el TXT.
+let nextId = 1;
+const mk = (indent, text, blank = false) => ({ id: nextId++, indent, text, blank, children: [] });
+const width = s => [...s].reduce((w, c) => w + (c === "\t" ? 4 : 1), 0);
+
+let rootA = mk("", ""), rootR = mk("", "");   // bloques activos / archivados
+let trailingNewline = true, unit = "    ";
+let mtime = null;
+
+function parse(text) {
+  trailingNewline = text === "" || text.endsWith("\n");
+  const lines = text.split("\n");
+  if (text.endsWith("\n")) lines.pop();
+  rootA = mk("", ""); rootR = mk("", "");
+  unit = null;
+  let root = rootA, stack = [], pending = 0;
+  const flushBlanks = (into) => { for (; pending > 0; pending--) into.children.push(mk("", "", true)); };
+
+  for (const raw of lines) {
+    if (SEP_RE.test(raw)) {
+      if (stack.length) flushBlanks(stack[0].node);
+      pending = 0; stack = []; root = rootR;
+      continue;
+    }
+    if (raw.trim() === "") { if (stack.length) pending++; continue; }
+    const indent = raw.match(/^[ \t]*/)[0];
+    const w = width(indent);
+    let shallowestClosed = null;
+    while (stack.length && stack[stack.length - 1].w >= w) shallowestClosed = stack.pop().node;
+    // Las líneas en blanco van al final del bloque que se acaba de cerrar,
+    // así viajan con él al reordenar.
+    if (pending) flushBlanks(shallowestClosed || stack[stack.length - 1].node);
+    const parent = stack.length ? stack[stack.length - 1].node : root;
+    if (!unit && stack.length === 1 && indent) unit = indent;
+    const node = mk(indent, raw.slice(indent.length));
+    parent.children.push(node);
+    stack.push({ w, node });
+  }
+  if (stack.length) flushBlanks(stack[0].node);
+  unit = unit || "    ";
+}
+
+function serialize() {
+  const out = [];
+  const emit = n => { out.push(n.blank ? "" : n.indent + n.text); n.children.forEach(emit); };
+  normalizeSpacing(rootA); normalizeSpacing(rootR);
+  rootA.children.forEach(emit);
+  if (rootR.children.length) {
+    if (out.length && out[out.length - 1] !== "") out.push("");
+    out.push(SEP, "");
+    rootR.children.forEach(emit);
+  }
+  return out.join("\n") + (trailingNewline && out.length ? "\n" : "");
+}
+
+// Si los bloques del fichero van separados por una línea en blanco, mantenemos
+// ese estilo al moverlos / archivarlos.
+function normalizeSpacing(root) {
+  const blocks = root.children;
+  const notLast = list => list.filter((b, i) => i < list.length - 1);
+  const usesBlank = [...notLast(rootA.children), ...notLast(rootR.children)].some(endsWithBlank);
+  if (!usesBlank) return;
+  blocks.forEach((b, i) => { if (i < blocks.length - 1 && !endsWithBlank(b)) b.children.push(mk("", "", true)); });
+}
+const endsWithBlank = n => n.children.length > 0 && n.children[n.children.length - 1].blank;
+
+// ---------- Utilidades del árbol ----------
+const isTask = n => TASK_RE.test(n.text);
+const isComment = n => n.text.startsWith("*");
+const isDone = n => DONE_RE.test(n.text);
+const isWaiting = n => WAIT_RE.test(n.text);
+const isCollapsed = n => FOLD_RE.test(n.text);
+const visible = n => n.children.filter(c => !c.blank);
+const withoutFold = text => text.replace(FOLD_RE, "");
+
+// "- [ HECHO ] texto": la marca va justo detrás del guion.
+// Hecho y en espera se excluyen: poner una quita la otra.
+function setDone(n, on) {
+  let base = n.text.replace(DONE_RE, "");
+  if (on) base = base.replace(WAIT_RE, "");
+  n.text = on ? base.replace(/^-\s*/, `- ${DONE_MARK} `) : base;
+}
+// "- [ EN ESPERA ] texto", "* [ EN ESPERA ] texto" o "[ EN ESPERA ] Proyecto".
+function setWaiting(n, on) {
+  let base = n.text.replace(WAIT_RE, "");
+  if (!on) { n.text = /^[-*]/.test(base) ? base : base.trimStart(); return; }
+  base = base.replace(DONE_RE, "");
+  const [, prefix, rest] = base.match(/^([-*]?)\s*(.*)$/s);
+  n.text = `${prefix ? prefix + " " : ""}${WAIT_MARK} ${rest}`.trimEnd();
+}
+function setCollapsed(n, on) {
+  const base = withoutFold(n.text);
+  n.text = on ? `${base} ${FOLD_MARK}` : base;
+}
+
+function findParent(target, node = null) {
+  for (const root of node ? [node] : [rootA, rootR]) {
+    for (const c of root.children) {
+      if (c === target) return root;
+      const p = findParent(target, c);
+      if (p) return p;
+    }
+  }
+  return null;
+}
+function removeFrom(parent, n) { parent.children.splice(parent.children.indexOf(n), 1); }
+function insertBeforeTrailingBlanks(parent, n) {
+  let i = parent.children.length;
+  while (i > 0 && parent.children[i - 1].blank) i--;
+  parent.children.splice(i, 0, n);
+}
+function reindent(n, newIndent) {
+  const old = n.indent;
+  const walk = m => {
+    if (!m.blank) m.indent = newIndent + (m.indent.startsWith(old) ? m.indent.slice(old.length) : m.indent.trimStart());
+    m.children.forEach(walk);
+  };
+  walk(n);
+}
+// ---------- Iconos pixel art de cada proyecto ----------
+// Cuantas más líneas tiene un bloque, más grande es el montón.
+const PALETTE = {
+  "K": "#4a3428",
+  "W": "#fdf8ec",
+  "w": "#e8dcc2",
+  "l": "#a9b1c2",
+  "H": "#fbe4a6",
+  "Y": "#f5c76a",
+  "y": "#d9a043",
+  "o": "#b07a2c",
+  "P": "#f7b5c2",
+  "p": "#e08a9c",
+  "C": "#c9ccd4",
+  "c": "#8a8e99",
+  "U": "#f6dc8a",
+  "T": "#9fd8cb",
+  "t": "#7cc2b3",
+  "1": "#f0a194",
+  "R": "#e07a6b",
+  "r": "#b35548",
+  "2": "#a9c5ee",
+  "B": "#7fa7e0",
+  "b": "#5b7fbf",
+  "3": "#b4dcb0",
+  "G": "#8cc78a",
+  "g": "#5f9e5d",
+  "4": "#dcc2ea",
+  "M": "#c9a0dc",
+  "m": "#9c76b0",
+  "E": "#d8c3a0",
+  "e": "#b89b6e",
+  "f": "#8f7449",
+};
+// Cuadrículas de 24x24: cada letra es un color de PALETTE, '.' es transparente.
+const SPRITES = [
+// 1 · una hoja
+`........................
+........................
+........................
+........................
+.....KKKKKKKKKK.........
+.....KWWWWWWWWKK........
+.....KWWWWWWWWKwK.......
+.....KWWWWWWWWKwwK......
+.....KWWWWWWWWKwwwK.....
+.....KWWWWWWWWKKKKK.....
+.....KWWWWWWWWWWWWK.....
+.....KWllllllllWWWK.....
+.....KWWWWWWWWWWWWK.....
+.....KWllllllllWWWK.....
+.....KWWWWWWWWWWWWK.....
+.....KWllllllWWWWWK.....
+.....KWWWWWWWWWWWWK.....
+.....KWllllllllWWWK.....
+.....KWWWWWWWWWWWWK.....
+.....KWlllllWWWWWWK.....
+.....KwwwwwwwwwwwwK.....
+.....KKKKKKKKKKKKKK.....
+........................
+........................`,
+// 2 · carpeta llena de hojas
+`........................
+........................
+........................
+........................
+........................
+........................
+........................
+........KKKKKKKKKKKKKKK.
+.......KHHHHHHHHHHHHYYYK
+......KHHHHHHHHHHHHYYYyK
+.....KHHHHHHHHHHHHYYYyyK
+....KHHHHHHHHHHHHYYYyyoK
+...KHHHHHHHHHHHHYYYyyooK
+..KHHHHHHHHHHHHYYYyyooK.
+.KKKKKKKKKKKKKKKYyyooK..
+..KWWWWWWWWWWWWyKyooK...
+..KwwwwwwwwwwwwyyKoK....
+..KWWWWWWWWWWWWyyKK.....
+..KWWWWWWWWWWWWyyK......
+..KHHHHHHHHHHHHKK.......
+.KKKKKKKKKKKKKKK........
+........................
+........................
+........................`,
+// 3 · pila de libros
+`........................
+........................
+........................
+........................
+........................
+......KKKKKKKKKKKKKK....
+.....K333333333333gK....
+....K333333333333gWK....
+...K333333333333gWWK....
+..KGGGGGGGGGGGGGWWKKK...
+..KGGGGGGGGGGGGGWK1rK...
+..KGUUUGGGGGUUGGK1rWK...
+..KKKKKKKKKKKKKK1rWWK...
+...KRRRRRRRRRRRRRWWKK...
+...KRRRRRRRRRRRRRWKbK...
+...KRUUURRRRRUURRKbWK...
+..KKKKKKKKKKKKKKKbWWK...
+.KBBBBBBBBBBBBBBBWWWK...
+.KBBBBBBBBBBBBBBBWWK....
+.KBUUUBBBBBBBUUBBWK.....
+.KBBBBBBBBBBBBBBBK......
+.KKKKKKKKKKKKKKKK.......
+........................
+........................`,
+];
+function spriteSVG(grid, palette = PALETTE) {
+  const rows = grid.split("\n");
+  let rects = "";
+  rows.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      const c = row[x]; let n = 1;
+      while (row[x + n] === c) n++;
+      if (c !== ".") rects += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${palette[c]}"/>`;
+      x += n;
+    }
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges">${rects}</svg>`;
+}
+const spriteURL = (g, palette) => "data:image/svg+xml;utf8," + encodeURIComponent(spriteSVG(g, palette));
+const SPRITE_URLS = SPRITES.map(g => spriteURL(g));
+// Iconos de los bloques en espera: la misma paleta pasada a tonos de amarillo grisáceo
+// (según la luminosidad de cada color), para que parezcan "desactivados".
+const WAIT_DARK = [74, 64, 40], WAIT_LIGHT = [236, 226, 190];
+const toWait = hex => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return "rgb(" + WAIT_DARK.map((d, i) => Math.round(d + (WAIT_LIGHT[i] - d) * lum)).join(",") + ")";
+};
+const WAIT_PALETTE = Object.fromEntries(Object.entries(PALETTE).map(([k, v]) => [k, toWait(v)]));
+const SPRITE_URLS_WAIT = SPRITES.map(g => spriteURL(g, WAIT_PALETTE));
+// Icono del desplegable del archivo: cajonera de cartón con el cajón de abajo abierto.
+const ARCHIVE_URL = spriteURL(
+`........................
+..KKKKKKKKKKKKKK........
+..KeUUUUUUUUUUUUK.......
+..KeeUUUUUUUUUUUUK......
+..KeeeUUUUUUUUUUUUK.....
+..KeeeKKKKKKKKKKKKKK....
+..KeeeKEEEEEEEEEEEEK....
+..KeeeKEEEEEEEEEEEEK....
+..KeeeKEEEEEEEEEEEEK....
+..KeeeKEEEEEfffEEEEK....
+..KeeeKEEEEEEEEEEEEK....
+..KeeeKEEEEEEEEEEEEK....
+..KeeeKeeeeeeeeeeeeK....
+..KeeeKKKKKKKKKKKKKK....
+..KeeeKEllTTlPPlllYYK...
+..KeeeKeEWWWWWWWWWWWWK..
+..KeeeKeeKKKKKKKKKKKKKK.
+..KeeeKeeKEEEEEEEEEEEEK.
+...KeeKeeKEEEEEEEEEEEEK.
+....KeKeeKEEEEEfffEEEEK.
+.....KKeeKEEEEEEEEEEEEK.
+......KKeKEEEEEEEEEEEEK.
+........KKeeeeeeeeeeeeK.
+.........KKKKKKKKKKKKKK.`);
+// Reloj de arena (16x16) delante de las líneas [ EN ESPERA ].
+const WAIT_URL = spriteURL(
+`.KKKKKKKKKKKKKK.
+.KffffffffffffK.
+.KKKKKKKKKKKKKK.
+..KWWWWWWWWWWK..
+..KWYYYYYYYYWK..
+...KWYYYYYYWK...
+....KWYYYYWK....
+.....KWYYWK.....
+......KYYK......
+.....KWWYWK.....
+....KWWWYWWK....
+...KWWWYYYWWK...
+..KWYYYYYYYYWK..
+.KKKKKKKKKKKKKK.
+.KffffffffffffK.
+.KKKKKKKKKKKKKK.`);
+const PILE_LEVELS = [5, 15];   // hasta 5 líneas: una hoja · hasta 15: carpeta · más de 15: pila de libros
+const countLines = n => n.children.reduce((acc, c) => acc + (c.blank ? 0 : 1 + countLines(c)), 0);
+function pileFor(n) {
+  const lines = countLines(n);
+  const level = PILE_LEVELS.filter(max => lines > max).length;
+  return (isWaiting(n) ? SPRITE_URLS_WAIT : SPRITE_URLS)[level];
+}
+
+// ---------- Render ----------
+let archiveOpen = false;
+let editing = null;      // {node, isNew}
+let drag = null;         // {node, parent}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function linkify(container, text) {
+  let last = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    let target = m[0].replace(/[.,;:)\]]+$/, "");
+    appendHighlighted(container, text.slice(last, m.index));
+    const a = el("a");
+    appendHighlighted(a, target);
+    a.href = "#"; a.title = "Abrir " + target;
+    a.onclick = e => { e.preventDefault(); api("/api/open", { target }); };
+    container.append(a);
+    last = m.index + target.length;
+  }
+  appendHighlighted(container, text.slice(last));
+}
+
+// ---------- Buscador (sin distinguir mayúsculas ni tildes) ----------
+let query = "";
+const searchInput = document.getElementById("search");
+
+// Texto "plegado" (sin tildes, en minúsculas) y, para cada carácter, su posición en el original.
+function foldChars(s) {
+  let out = ""; const idx = [];
+  for (let i = 0; i < s.length; i++) {
+    for (const ch of s[i].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()) { out += ch; idx.push(i); }
+  }
+  return { out, idx };
+}
+const lineMatches = n => !n.blank && query !== "" && foldChars(withoutFold(n.text)).out.includes(query);
+const subtreeMatches = n => lineMatches(n) || n.children.some(subtreeMatches);
+const countMatches = n => (lineMatches(n) ? 1 : 0) + n.children.reduce((a, c) => a + countMatches(c), 0);
+
+function appendHighlighted(container, str) {
+  if (!query) { container.append(str); return; }
+  const { out, idx } = foldChars(str);
+  let last = 0, pos = out.indexOf(query);
+  while (pos !== -1) {
+    const start = idx[pos], end = idx[pos + query.length - 1] + 1;
+    container.append(str.slice(last, start), el("mark", null, str.slice(start, end)));
+    last = end;
+    pos = out.indexOf(query, pos + query.length);
+  }
+  container.append(str.slice(last));
+}
+
+searchInput.addEventListener("input", () => {
+  query = foldChars(searchInput.value.trim()).out;
+  render();
+});
+searchInput.addEventListener("keydown", e => {
+  if (e.key === "Escape") { searchInput.value = ""; query = ""; render(); searchInput.blur(); }
+});
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f" && !rawMode) {
+    e.preventDefault();
+    searchInput.focus(); searchInput.select();
+  }
+});
+
+function render() {
+  const scroll = window.scrollY;
+  // Al buscar, solo se muestran los bloques con alguna coincidencia (también los archivados).
+  const shown = root => visible(root).filter(n => !query || subtreeMatches(n));
+  const active = shown(rootA), archived = shown(rootR);
+  document.getElementById("active").replaceChildren(...active.map(n => renderNode(n, rootA, 0)));
+  const head = document.getElementById("archive-head");
+  const icon = el("img", "archive-icon"); icon.src = ARCHIVE_URL; icon.alt = "";
+  head.replaceChildren(...(!archived.length ? [] : [icon, query ? `Archivado (${archived.length} con resultados)`
+                                                                : `Archivado (${archived.length})`]));
+  head.classList.toggle("hidden", !archived.length);
+  document.getElementById("archived").replaceChildren(
+    ...(archiveOpen || query ? archived.map(n => renderNode(n, rootR, 0)) : []));
+  const total = query ? countMatches(rootA) + countMatches(rootR) : 0;
+  document.getElementById("search-count").textContent = query ? String(total) : "";
+  document.getElementById("noresults").classList.toggle("hidden", !query || total > 0);
+  window.scrollTo(0, scroll);
+  const input = document.querySelector("input.edit");
+  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+}
+
+// `showAll`: algún antepasado coincide con la búsqueda, así que se muestra todo su contenido.
+function renderNode(n, parent, depth, showAll = false) {
+  const kids = visible(n);
+  const all = showAll || lineMatches(n);
+  const shownKids = query ? kids.filter(c => all || subtreeMatches(c)) : kids;
+  const folded = !query && kids.length > 0 && isCollapsed(n);   // al buscar, todo desplegado
+  const wrap = el("div", "node");
+  wrap.dataset.id = n.id;
+  if (depth === 0) wrap.classList.add("top");
+  if (parent === rootR) wrap.classList.add("archived");
+  if (isComment(n)) wrap.classList.add("comment");
+  if (isDone(n)) wrap.classList.add("done");
+  else if (isWaiting(n)) wrap.classList.add("waiting");
+
+  const row = el("div", "row");
+  wrap.append(row);
+
+  const toggleFold = () => {
+    if (!kids.length) return;
+    setCollapsed(n, !folded);
+    changed();
+  };
+  if (depth === 0) {
+    // El icono del proyecto: clic = desplegar/recoger, mantener y arrastrar = mover.
+    const pile = el("img", "pile");
+    pile.src = pileFor(n);
+    pile.draggable = false;
+    pile.title = `${countLines(n)} líneas · clic: ${folded ? "desplegar" : "recoger"} · arrastrar: mover`;
+    pile.onmousedown = () => { row.draggable = true; };
+    pile.onmouseup = () => { row.draggable = false; };
+    pile.onclick = toggleFold;
+    row.append(pile);
+  } else {
+    const handle = el("span", "handle", "⠿");
+    handle.title = "Arrastrar para reordenar";
+    handle.onmousedown = () => { row.draggable = true; };
+    handle.onmouseup = () => { row.draggable = false; };
+    const fold = el("span", "fold", kids.length ? (folded ? "▸" : "▾") : "");
+    fold.onclick = toggleFold;
+    row.append(handle, fold);
+  }
+
+  if (isTask(n)) {
+    const cb = el("input"); cb.type = "checkbox"; cb.checked = isDone(n);
+    cb.title = "Marcar como [ HECHO ]";
+    cb.onchange = () => { setDone(n, cb.checked); changed(); };
+    row.append(cb);
+  }
+
+  if (editing && editing.node === n) {
+    row.append(makeEditor(n, parent));
+  } else {
+    if (isWaiting(n) && !isDone(n)) {
+      const icon = el("img", "wait-icon"); icon.src = WAIT_URL; icon.alt = ""; icon.title = "En espera";
+      row.append(icon);
+    }
+    const text = el("span", "text");
+    let shown = withoutFold(n.text).replace(WAIT_RE, "");
+    if (isTask(n)) shown = shown.replace(TASK_RE, "").replace(DONE_RE, "").trimStart();
+    else if (!isComment(n)) shown = shown.trimStart();
+    linkify(text, shown || " ");
+    text.ondblclick = () => { editing = { node: n, isNew: false }; render(); };
+    row.append(text);
+  }
+
+  const add = el("button", "add", "+");
+  add.title = "Añadir una tarea dentro";
+  add.onclick = () => {
+    const childIndent = kids.length ? kids[0].indent : n.indent + unit;
+    const c = mk(childIndent, "- ");
+    insertBeforeTrailingBlanks(n, c);
+    setCollapsed(n, false);
+    editing = { node: c, isNew: true }; render();
+  };
+  row.append(add);
+
+  row.addEventListener("contextmenu", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const waiting = isWaiting(n);
+    const items = [[waiting ? "Quitar de espera" : "Poner en espera", () => { setWaiting(n, !waiting); changed(); }]];
+    // Archivar solo desde la cabecera del bloque, no desde sus líneas.
+    if (depth === 0) {
+      const archived = parent === rootR;
+      items.unshift([archived ? "Desarchivar bloque" : "Archivar bloque", () => toggleArchive(n)]);
+    }
+    showMenu(e.clientX, e.clientY, items);
+  });
+
+  row.addEventListener("dragstart", e => {
+    e.stopPropagation();
+    drag = { node: n, parent };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", n.text);
+    wrap.classList.add("dragging");
+  });
+  row.addEventListener("dragend", () => {
+    row.draggable = false; wrap.classList.remove("dragging");
+    endDrag();
+  });
+
+  if (shownKids.length && !folded) {
+    const box = el("div", "children");
+    box.append(...shownKids.map(c => renderNode(c, n, depth + 1, all)));
+    wrap.append(box);
+  }
+  return wrap;
+}
+
+// ---------- Drag and drop ----------
+// Solo cuenta la altura del ratón: el elemento se coloca entre sus hermanos
+// (mismo nivel) según por encima / debajo de la mitad de cada uno quede el ratón.
+const dropLine = document.getElementById("dropline");
+
+function dropTarget(y) {
+  const sibs = visible(drag.parent).filter(c => c !== drag.node)
+    .map(c => ({ node: c, wrap: document.querySelector(`.node[data-id="${c.id}"]`) }))
+    .filter(s => s.wrap);
+  if (!sibs.length) return null;
+  for (const s of sibs) {
+    const r = s.wrap.getBoundingClientRect();
+    if (y < r.top + r.height / 2) return { before: s.node, rect: r, y: r.top };
+  }
+  const r = sibs[sibs.length - 1].wrap.getBoundingClientRect();
+  return { before: null, rect: r, y: r.bottom };
+}
+
+document.addEventListener("dragover", e => {
+  if (!drag) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const t = dropTarget(e.clientY);
+  dropLine.classList.toggle("hidden", !t);
+  if (t) Object.assign(dropLine.style, { top: `${t.y - 1}px`, left: `${t.rect.left}px`, width: `${t.rect.width}px` });
+});
+
+document.addEventListener("drop", e => {
+  if (!drag) return;
+  e.preventDefault();
+  const t = dropTarget(e.clientY);
+  const { node, parent } = drag;
+  endDrag();
+  if (!t) return;
+  removeFrom(parent, node);
+  if (t.before) parent.children.splice(parent.children.indexOf(t.before), 0, node);
+  else insertBeforeTrailingBlanks(parent, node);
+  changed();
+});
+
+function endDrag() {
+  drag = null;
+  dropLine.classList.add("hidden");
+}
+
+// ---------- Menú contextual ----------
+const menu = document.getElementById("ctxmenu");
+function showMenu(x, y, items) {
+  menu.replaceChildren(...items.map(([label, action]) => {
+    const item = el("div", null, label);
+    item.onclick = () => { hideMenu(); action(); };
+    return item;
+  }));
+  menu.classList.remove("hidden");
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, innerWidth - r.width - 4)}px`;
+  menu.style.top = `${Math.min(y, innerHeight - r.height - 4)}px`;
+}
+function hideMenu() { menu.classList.add("hidden"); }
+document.addEventListener("mousedown", e => { if (!menu.contains(e.target)) hideMenu(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideMenu(); });
+document.addEventListener("scroll", hideMenu);
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+function toggleArchive(n) {
+  const parent = findParent(n);
+  removeFrom(parent, n);
+  if (parent === rootA) rootR.children.unshift(n);   // recién archivado: justo bajo el separador
+  else rootA.children.push(n);                       // desarchivado: al final de los activos
+  changed();
+}
+
+// ---------- Edición de una línea ----------
+function makeEditor(n, parent) {
+  const input = el("input", "edit");
+  input.value = withoutFold(n.text);
+  const wasFolded = isCollapsed(n);
+  let done = false;
+  const valueWithFold = () => wasFolded ? `${input.value} ${FOLD_MARK}` : input.value;
+  const finish = (save) => {
+    if (done) return false;
+    done = true;
+    const value = input.value.replace(/\s+$/, "");
+    const wasNew = editing.isNew;
+    editing = null;
+    if (!save) {
+      if (wasNew) { removeFrom(parent, n); render(); }
+      else changed();   // por si se ha cambiado la indentación con Tab
+      return false;
+    }
+    if (value.trim() === "") {
+      if (visible(n).length && !confirm("Esta línea tiene contenido dentro. ¿Borrarla con todo?")) { render(); return false; }
+      removeFrom(parent, n);
+      changed();
+      return false;
+    }
+    n.text = value;
+    if (wasFolded) setCollapsed(n, true);
+    changed();
+    return true;
+  };
+
+  input.onkeydown = e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      finish(false);
+    } else if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault();
+      const sibs = parent.children;
+      let i = sibs.indexOf(n) - 1;
+      while (i >= 0 && sibs[i].blank) i--;
+      if (i < 0) return;
+      const prev = sibs[i];
+      n.text = valueWithFold();
+      removeFrom(parent, n);
+      const pk = visible(prev);
+      reindent(n, pk.length ? pk[0].indent : prev.indent + unit);
+      insertBeforeTrailingBlanks(prev, n);
+      setCollapsed(prev, false);
+      done = true; render();
+    } else if (e.key === "Tab" && e.shiftKey) {
+      e.preventDefault();
+      if (parent === rootA || parent === rootR) return;
+      const grand = findParent(parent);
+      n.text = valueWithFold();
+      removeFrom(parent, n);
+      reindent(n, parent.indent);
+      grand.children.splice(grand.children.indexOf(parent) + 1, 0, n);
+      done = true; render();
+    }
+  };
+  input.onblur = () => finish(true);
+  return input;
+}
+
+// ---------- Comunicación con la aplicación (Python) ----------
+const statusEl = document.getElementById("status");
+function setStatus(s) { statusEl.textContent = s; }
+
+const pendingCalls = new Map();
+let callId = 0;
+window.__reply = (id, status, data) => {
+  const resolve = pendingCalls.get(id);
+  pendingCalls.delete(id);
+  if (resolve) resolve({ status, data });
+};
+function api(path, body) {
+  return new Promise(resolve => {
+    const id = ++callId;
+    pendingCalls.set(id, resolve);
+    window.webkit.messageHandlers.notas.postMessage(JSON.stringify({ id, path, body: body || null }));
+  });
+}
+
+async function load() {
+  const { data } = await api("/api/file");
+  mtime = data.mtime;
+  current = data.text;
+  parse(data.text);
+  render();
+}
+
+// ---------- Guardado y deshacer (Ctrl+Z / Ctrl+Shift+Z) ----------
+// El historial son versiones completas del TXT; vive solo mientras la ventana está abierta.
+let current = "";          // el TXT tal y como está guardado
+const undoStack = [], redoStack = [];
+const MAX_UNDO = 300;
+
+function changed() {
+  render();
+  const text = serialize();
+  if (text === current) return;
+  undoStack.push(current);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0;
+  current = text;
+  save(text);
+}
+
+function undoRedo(from, to, label) {
+  if (!from.length) { setStatus(`nada que ${label}`); return; }
+  to.push(current);
+  current = from.pop();
+  parse(current);
+  render();
+  save(current, label === "deshacer" ? "deshecho ↶" : "rehecho ↷");
+}
+
+document.addEventListener("keydown", e => {
+  // Al escribir en una línea o en el buscador, Ctrl+Z es el del propio cuadro de texto.
+  if (!(e.ctrlKey || e.metaKey) || editing || rawMode || document.activeElement === searchInput) return;
+  const k = e.key.toLowerCase();
+  if (k === "z" && !e.shiftKey) { e.preventDefault(); undoRedo(undoStack, redoStack, "deshacer"); }
+  else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); undoRedo(redoStack, undoStack, "rehacer"); }
+});
+
+let saving = Promise.resolve();
+let pendingSaves = 0;
+function save(text, doneLabel = "guardado ✓") {
+  pendingSaves++;
+  saving = saving.then(async () => {
+    setStatus("guardando…");
+    const { status, data } = await api("/api/file", { text, mtime });
+    if (status === 409) {
+      alert("El TXT se ha modificado desde fuera. Se recarga la versión del disco (tu último cambio no se ha guardado).");
+      mtime = data.mtime; current = data.text; parse(data.text); render();
+      setStatus("recargado");
+    } else {
+      mtime = data.mtime;
+      setStatus(doneLabel);
+    }
+  }).catch(() => setStatus("⚠ error al guardar")).finally(() => { pendingSaves--; });
+}
+
+// Si editas el TXT con otro programa, la interfaz se actualiza sola.
+const busy = () => editing || rawMode || drag || pendingSaves > 0;
+setInterval(async () => {
+  if (busy()) return;
+  const { data } = await api("/api/mtime");
+  if (!busy() && data.mtime !== mtime) { await load(); setStatus("recargado"); }
+}, 2000);
+
+// ---------- Botones ----------
+let rawMode = false;
+function setRaw(on) {
+  rawMode = on;
+  document.getElementById("tree").classList.toggle("hidden", on);
+  document.getElementById("rawview").classList.toggle("hidden", !on);
+  if (on) { const t = document.getElementById("raw"); t.value = serialize(); t.focus(); }
+}
+document.getElementById("btn-raw").onclick = () => setRaw(!rawMode);
+document.getElementById("raw-cancel").onclick = () => setRaw(false);
+document.getElementById("raw-save").onclick = () => {
+  parse(document.getElementById("raw").value);
+  setRaw(false);
+  changed();
+};
+document.getElementById("raw").addEventListener("keydown", e => {
+  if (e.key === "Tab") { e.preventDefault(); document.execCommand("insertText", false, "\t"); }
+});
+document.getElementById("archive-head").onclick = () => { archiveOpen = !archiveOpen; render(); };
+document.getElementById("btn-new").onclick = () => {
+  const n = mk("", "");
+  rootA.children.unshift(n);
+  editing = { node: n, isNew: true };
+  window.scrollTo(0, 0);
+  render();
+};
+const setAllTop = (collapse) => {
+  for (const n of [...visible(rootA), ...visible(rootR)])
+    setCollapsed(n, collapse && visible(n).length > 0);
+  changed();
+};
+document.getElementById("btn-collapse").onclick = () => setAllTop(true);
+document.getElementById("btn-expand").onclick = () => setAllTop(false);
+
+load();
+</script>
+</body>
+</html>
