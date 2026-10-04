@@ -658,13 +658,34 @@ function dropTarget(y) {
   return { before: null, rect: r, y: r.bottom };
 }
 
+function updateDropLine(y) {
+  const t = dropTarget(y);
+  dropLine.classList.toggle("hidden", !t);
+  if (t) Object.assign(dropLine.style, { top: `${t.y - 1}px`, left: `${t.rect.left}px`, width: `${t.rect.width}px` });
+}
+
+// Auto-scroll: con el ratón cerca del borde superior / inferior de la ventana,
+// la página se desplaza en esa dirección (más rápido cuanto más cerca del borde).
+const EDGE = 60, MAX_SPEED = 20;
+let dragY = null, scrollLoop = null;
+
+function autoScroll() {
+  if (!drag || dragY === null) { scrollLoop = null; return; }
+  const h = window.innerHeight;
+  let dy = 0;
+  if (dragY < EDGE) dy = -MAX_SPEED * (1 - Math.max(dragY, 0) / EDGE);
+  else if (dragY > h - EDGE) dy = MAX_SPEED * (1 - Math.max(h - dragY, 0) / EDGE);
+  if (dy) { window.scrollBy(0, dy); updateDropLine(dragY); }
+  scrollLoop = requestAnimationFrame(autoScroll);
+}
+
 document.addEventListener("dragover", e => {
   if (!drag) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
-  const t = dropTarget(e.clientY);
-  dropLine.classList.toggle("hidden", !t);
-  if (t) Object.assign(dropLine.style, { top: `${t.y - 1}px`, left: `${t.rect.left}px`, width: `${t.rect.width}px` });
+  dragY = e.clientY;
+  updateDropLine(dragY);
+  if (!scrollLoop) scrollLoop = requestAnimationFrame(autoScroll);
 });
 
 document.addEventListener("drop", e => {
@@ -682,6 +703,8 @@ document.addEventListener("drop", e => {
 
 function endDrag() {
   drag = null;
+  dragY = null;
+  if (scrollLoop) { cancelAnimationFrame(scrollLoop); scrollLoop = null; }
   dropLine.classList.add("hidden");
 }
 
