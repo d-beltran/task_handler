@@ -24,14 +24,43 @@ except ImportError:
     # GTK solo está en el Python del sistema (no en conda/venv): nos relanzamos con él.
     if sys.executable != "/usr/bin/python3" and os.path.exists("/usr/bin/python3"):
         os.execv("/usr/bin/python3", ["/usr/bin/python3", os.path.abspath(__file__), *sys.argv[1:]])
-    sys.exit("Falta GTK para Python. Instálalo con: sudo apt install python3-gi gir1.2-webkit2-4.0")
+    sys.exit("Falta GTK para Python. Instálalo con: sudo apt install python3-gi gir1.2-webkit2-4.1")
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-gi.require_version("WebKit2", "4.0")
+try:
+    gi.require_version("WebKit2", "4.1")
+except ValueError:
+    gi.require_version("WebKit2", "4.0")
 from gi.repository import Gdk, GLib, Gtk, WebKit2  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
+DESKTOP_FILE = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "applications/notas.desktop"
+
+
+def install_desktop_file():
+    """Crea (o corrige, si el repo se ha movido) el lanzador notas.desktop.
+
+    En Wayland el dock ignora el icono que pone la ventana y usa el del .desktop
+    cuyo nombre coincide con el de la aplicación, así que sin él sale el icono genérico.
+    """
+    content = (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=Notas\n"
+        f'Exec="{HERE / "notas.py"}" %f\n'
+        f"Icon={HERE / 'icono.svg'}\n"
+        "Categories=Utility;TextEditor;\n"
+        "MimeType=text/plain;\n"
+        "StartupWMClass=notas\n"
+    )
+    try:
+        if DESKTOP_FILE.exists() and DESKTOP_FILE.read_text(encoding="utf-8") == content:
+            return
+        DESKTOP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        DESKTOP_FILE.write_text(content, encoding="utf-8")
+    except OSError:
+        pass  # sin lanzador la aplicación funciona igual, solo cambia el icono del dock
 
 
 class NotesFile:
@@ -157,6 +186,7 @@ def main():
     # Nombre de la ventana para el sistema: así el dock la asocia con notas.desktop.
     GLib.set_prgname("notas")
     Gdk.set_program_class("notas")
+    install_desktop_file()
     path = Path(sys.argv[1]).expanduser().resolve() if len(sys.argv) > 1 else choose_file()
     if path is None:
         return

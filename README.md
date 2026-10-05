@@ -44,22 +44,12 @@ Un gestor de notas minimalista para Ubuntu que trabaja directamente sobre un fic
 ```
 
 No necesita instalar nada en Ubuntu de escritorio: usa Python 3, GTK y WebKit del sistema
-(paquetes `python3-gi` y `gir1.2-webkit2-4.0`). Si se lanza con otro Python (conda, venv…),
+(paquetes `python3-gi` y `gir1.2-webkit2-4.1`, o `gir1.2-webkit2-4.0` en distribuciones antiguas). Si se lanza con otro Python (conda, venv…),
 el programa se relanza solo con el del sistema.
 
-Para tenerlo en el menú de aplicaciones y en el dock con su icono, crea
-`~/.local/share/applications/notas.desktop`:
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=Notas
-Exec=/ruta/a/notes_handler/notas.py %f
-Icon=/ruta/a/notes_handler/icono.svg
-Categories=Utility;TextEditor;
-MimeType=text/plain;
-StartupWMClass=notas
-```
+Al arrancar, `notas.py` crea (o corrige, si has movido la carpeta)
+`~/.local/share/applications/notas.desktop`, así que basta con abrirlo una vez para que
+aparezca en el menú de aplicaciones y en el dock con su icono.
 
 ## Ficheros
 
