@@ -52,8 +52,10 @@
   input[type=checkbox]:checked { background: var(--done); border-color: var(--done); }
   input[type=checkbox]:checked::after { content: ""; position: absolute; left: 3.5px; top: 0.5px; width: 4px; height: 8px;
                                         border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-  .row input.edit { flex: 1; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent);
-                    border-radius: 4px; padding: 0 4px; outline: none; }
+  .row .edit { flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent);
+               border-radius: 4px; padding: 0 4px; outline: none; resize: none; overflow: hidden; display: block;
+               white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+  .arch-date { flex: none; margin-left: 10px; color: var(--muted); font-size: 11px; font-weight: 400; opacity: .7; }
   .add { flex: none; opacity: 0; border: none; padding: 0 6px; color: var(--muted); }
   .row:hover .add { opacity: 1; }
 
@@ -73,7 +75,7 @@
   .waiting .row > .text, .waiting .row > .text a { color: var(--wait); }
   .wait-icon { width: 16px; height: 16px; flex: none; margin-top: 3px; image-rendering: pixelated; -webkit-user-drag: none; }
   .top > .row > .wait-icon { margin-top: 0; }
-  .row input.edit { font-weight: inherit; font-size: inherit; }
+  .row .edit { font-weight: inherit; font-size: inherit; }
   .top.done > .row > .text { text-decoration: none; }
 
   a { color: var(--accent); text-decoration: none; }
@@ -126,6 +128,7 @@ const WAIT_RE = /\s*\[\s*EN\s+ESPERA\s*\]/i;
 const WAIT_MARK = "[ EN ESPERA ]";
 const FOLD_MARK = "[+]";              // al final de una línea: bloque recogido en la interfaz
 const FOLD_RE = /\s*\[\+\]\s*$/;
+const ARCH_RE = /\s*\[\s*ARCHIVADO\s+([^\]]*?)\s*\]/i;   // "[ ARCHIVADO 09/10/2026 ]" en la cabecera de un bloque archivado
 const TASK_RE = /^-(\s|$)/;
 const LINK_RE = /((?:https?|file):\/\/[^\s<>"]+|(?<=^|\s)~?\/[^\s\/][^\s]*)/g;
 
@@ -221,6 +224,14 @@ function setWaiting(n, on) {
   const [, prefix, rest] = base.match(/^([-*]?)\s*(.*)$/s);
   n.text = `${prefix ? prefix + " " : ""}${WAIT_MARK} ${rest}`.trimEnd();
 }
+// La fecha de archivado va al final de la cabecera, antes de la marca de recogido.
+const archivedDate = n => (n.text.match(ARCH_RE) || [])[1] || "";
+function setArchivedDate(n, date) {
+  const folded = isCollapsed(n);
+  n.text = withoutFold(n.text).replace(ARCH_RE, "") + (date ? ` [ ARCHIVADO ${date} ]` : "");
+  if (folded) setCollapsed(n, true);
+}
+const today = () => new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 function setCollapsed(n, on) {
   const base = withoutFold(n.text);
   n.text = on ? `${base} ${FOLD_MARK}` : base;
@@ -319,8 +330,8 @@ const SPRITES = [
 ........................
 ........................
 ........................
-........KKKKKKKKKKKKKKK.
-.......KHHHHHHHHHHHHYYYK
+........KKKKKKKKKKKKKK..
+.......KHHHHHHHHHHHHYYK.
 ......KHHHHHHHHHHHHYYYyK
 .....KHHHHHHHHHHHHYYYyyK
 ....KHHHHHHHHHHHHYYYyyoK
@@ -338,26 +349,26 @@ const SPRITES = [
 ........................`,
 // 3 · pila de libros
 `........................
-........................
-........................
-........................
-........................
-......KKKKKKKKKKKKKK....
-.....K333333333333gK....
-....K333333333333gWK....
-...K333333333333gWWK....
-..KGGGGGGGGGGGGGWWKKK...
-..KGGGGGGGGGGGGGWK1rK...
-..KGUUUGGGGGUUGGK1rWK...
-..KKKKKKKKKKKKKK1rWWK...
-...KRRRRRRRRRRRRRWWKK...
-...KRRRRRRRRRRRRRWKbK...
-...KRUUURRRRRUURRKbWK...
-..KKKKKKKKKKKKKKKbWWK...
-.KBBBBBBBBBBBBBBBWWWK...
-.KBBBBBBBBBBBBBBBWWK....
-.KBUUUBBBBBBBUUBBWK.....
-.KBBBBBBBBBBBBBBBK......
+.....KKKKKKKKKKKKKK.....
+.....K222222222222K.....
+....K222222222222KK.....
+....K222222222222KK.....
+...K222222222222KWK.....
+...KKKKKKKKKKKKKKWK.....
+.KKKBBBBBBBBBBBBKBK.....
+.KKKWWWWWWWWWWWWKK......
+.KRKWWWWWWWWWWWWKK......
+.KRKBBBBBBBBBBBBK1K.....
+.KRKKKKKKKKKKKKKKKKK....
+.KRRRKRRRRRRRRRRRRRKK...
+..KRRKWWWWWWWWWWWWWKK...
+...KRKWWWWWWWWWWWWWKK...
+..K3KKRRRRRRRRRRRRRKK...
+.KKKKKKKKKKKKKKKKKKKK...
+.KGGGGGGGGGGGGGGKWWGK...
+.KWWWWWWWWWWWWWWKWGK....
+.KWWWWWWWWWWWWWWKGK.....
+.KGGGGGGGGGGGGGGKK......
 .KKKKKKKKKKKKKKKK.......
 ........................
 ........................`,
@@ -527,8 +538,8 @@ function render() {
   document.getElementById("search-count").textContent = query ? String(total) : "";
   document.getElementById("noresults").classList.toggle("hidden", !query || total > 0);
   window.scrollTo(0, scroll);
-  const input = document.querySelector("input.edit");
-  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  const input = document.querySelector(".edit");
+  if (input) { input.oninput(); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
 }
 
 // `showAll`: algún antepasado coincide con la búsqueda, así que se muestra todo su contenido.
@@ -588,12 +599,16 @@ function renderNode(n, parent, depth, showAll = false) {
       row.append(icon);
     }
     const text = el("span", "text");
-    let shown = withoutFold(n.text).replace(WAIT_RE, "");
+    let shown = withoutFold(n.text).replace(WAIT_RE, "").replace(ARCH_RE, "");
     if (isTask(n)) shown = shown.replace(TASK_RE, "").replace(DONE_RE, "").trimStart();
     else if (!isComment(n)) shown = shown.trimStart();
     linkify(text, shown || " ");
     text.ondblclick = () => { editing = { node: n, isNew: false }; render(); };
     row.append(text);
+    if (depth === 0 && parent === rootR && archivedDate(n)) {
+      const date = el("span", "arch-date", archivedDate(n));
+      row.append(date);
+    }
   }
 
   const add = el("button", "add", "+");
@@ -732,16 +747,29 @@ function toggleArchive(n) {
   removeFrom(parent, n);
   if (parent === rootA) rootR.children.unshift(n);   // recién archivado: justo bajo el separador
   else rootA.children.push(n);                       // desarchivado: al final de los activos
+  setArchivedDate(n, parent === rootA ? today() : "");
   changed();
 }
 
 // ---------- Edición de una línea ----------
 function makeEditor(n, parent) {
-  const input = el("input", "edit");
-  input.value = withoutFold(n.text);
-  const wasFolded = isCollapsed(n);
+  // Textarea que crece con el texto, para que se vea igual que sin editar (varias líneas si hace falta).
+  const input = el("textarea", "edit");
+  input.rows = 1;
+  input.value = withoutFold(n.text).replace(ARCH_RE, "");
+  input.oninput = () => {
+    if (/[\r\n]/.test(input.value)) {   // una tarea es una sola línea: los saltos pegados pasan a espacios
+      const pos = input.selectionStart;
+      input.value = input.value.replace(/\r?\n|\r/g, " ");
+      input.setSelectionRange(pos, pos);
+    }
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + 2 + "px";
+  };
+  const wasFolded = isCollapsed(n), archDate = archivedDate(n);
   let done = false;
-  const valueWithFold = () => wasFolded ? `${input.value} ${FOLD_MARK}` : input.value;
+  const withMarks = v => (archDate ? `${v} [ ARCHIVADO ${archDate} ]` : v) + (wasFolded ? ` ${FOLD_MARK}` : "");
+  const valueWithFold = () => withMarks(input.value);
   const finish = (save) => {
     if (done) return false;
     done = true;
@@ -759,8 +787,7 @@ function makeEditor(n, parent) {
       changed();
       return false;
     }
-    n.text = value;
-    if (wasFolded) setCollapsed(n, true);
+    n.text = withMarks(value);
     changed();
     return true;
   };

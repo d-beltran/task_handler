@@ -57,7 +57,7 @@ aparezca en el menú de aplicaciones y en el dock con su icono.
 |---|---|
 | `notas.py` | La ventana (GTK + WebKit) y la lectura y escritura del TXT |
 | `ui.html` | La interfaz: árbol, edición, búsqueda, deshacer y los iconos pixel art |
-| `icono.svg` | Icono de la aplicación |
+| `logo.svg` | Icono de la aplicación |
 | `ejemplo.txt` | Notas de ejemplo para probar |
 
 Los iconos de los proyectos son cuadrículas de letras en `ui.html` (`SPRITES` y `PALETTE`),
