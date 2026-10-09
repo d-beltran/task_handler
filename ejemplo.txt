@@ -1,17 +1,7 @@
 Reunión con cliente X
     * Martes 10:00
     - Preparar demo
-
-Hacer un trabajo
-    - Hacer lo otro
-
-    * Hacerlo bien
-    Informe trimestral
-        - [ HECHO ] Recopilar métricas
-        - Redactar resumen
-        * Plantilla en /home/dani/Documentos/plantilla_informe.odt
-
-
+    - Este es un texto muy largo que necesito que se salga de los márgenes para verificar que colapsa adecuadamente
 
 Migración base de datos
     * Avisar al equipo de soporte
@@ -51,6 +41,17 @@ Proyecto Atlas (app móvil)
         * Fecha objetivo: finales de noviembre
 
 ==================== ARCHIVADO ====================
+
+Hacer un trabajo [ ARCHIVADO 09/10/2026 ]
+    - Hacer lo otro
+
+    * Hacerlo bien
+    Informe trimestral
+        - [ HECHO ] Recopilar métricas
+        - Redactar resumen
+        * Plantilla en /home/dani/Documentos/plantilla_informe.odt
+
+
 
 Onboarding de nueva incorporación
     - [ HECHO ] Dar accesos

@@ -10,6 +10,7 @@ directamente en el TXT (y al arrancar se deja una copia en <fichero>.bak).
 Requiere los paquetes de Ubuntu python3-gi y gir1.2-webkit2-4.0
 (vienen instalados por defecto en Ubuntu de escritorio).
 """
+import hashlib
 import html
 import json
 import os
@@ -35,7 +36,9 @@ except ValueError:
 from gi.repository import Gdk, GLib, Gtk, WebKit2  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-DESKTOP_FILE = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "applications/notas.desktop"
+DATA_HOME = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+DESKTOP_FILE = DATA_HOME / "applications/notas.desktop"
+ICON_DIR = DATA_HOME / "notas"
 
 
 def install_desktop_file():
@@ -43,13 +46,25 @@ def install_desktop_file():
 
     En Wayland el dock ignora el icono que pone la ventana y usa el del .desktop
     cuyo nombre coincide con el de la aplicación, así que sin él sale el icono genérico.
+    GNOME Shell además cachea la imagen por ruta hasta cerrar sesión, así que el .desktop
+    apunta a una copia del logo con su hash en el nombre: si el logo cambia, cambia la ruta.
     """
+    try:
+        data = (HERE / "logo.svg").read_bytes()
+        icon = ICON_DIR / f"logo-{hashlib.sha1(data).hexdigest()[:10]}.svg"
+        if not icon.exists():
+            ICON_DIR.mkdir(parents=True, exist_ok=True)
+            for old in ICON_DIR.glob("logo-*.svg"):
+                old.unlink()
+            icon.write_bytes(data)
+    except OSError:
+        icon = HERE / "logo.svg"
     content = (
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=Notas\n"
         f'Exec="{HERE / "notas.py"}" %f\n'
-        f"Icon={HERE / 'icono.svg'}\n"
+        f"Icon={icon}\n"
         "Categories=Utility;TextEditor;\n"
         "MimeType=text/plain;\n"
         "StartupWMClass=notas\n"
@@ -100,7 +115,7 @@ class NotesWindow(Gtk.Window):
         super().__init__(title=f"{path.name} — Notas")
         self.notes = NotesFile(path)
         self.set_default_size(920, 820)
-        self.set_icon_from_file(str(HERE / "icono.svg"))
+        self.set_icon_from_file(str(HERE / "logo.svg"))
 
         manager = WebKit2.UserContentManager()
         manager.register_script_message_handler("notas")
