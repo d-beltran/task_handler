@@ -7,12 +7,12 @@
 <style>
   :root {
     --bg: #fbf7ef; --fg: #3d3229; --muted: #a39482; --done: #bfb3a2; --line: #ece2d0;
-    --accent: #4f7fd1; --hover: #f4ecdd; --comment: #8a7a68; --drop: #e0a243; --wait: #9a8754;
+    --accent: #4f7fd1; --hover: #f4ecdd; --comment: #8a7a68; --drop: #e0a243; --wait: #9a8754; --danger: #e06c6c;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #211d1a; --fg: #ece3d6; --muted: #8f8172; --done: #665c52; --line: #3a322c;
-      --accent: #85a9e8; --hover: #2c2622; --comment: #b0a090; --drop: #e0a243; --wait: #bfad7a;
+      --accent: #85a9e8; --hover: #2c2622; --comment: #b0a090; --drop: #e0a243; --wait: #bfad7a; --danger: #f08a8a;
     }
   }
   * { box-sizing: border-box; }
@@ -42,7 +42,7 @@
              box-shadow: 0 4px 16px rgba(0,0,0,.25); padding: 4px; min-width: 160px; font-size: 13px; }
   #ctxmenu div { padding: 5px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
   #ctxmenu div:hover { background: var(--hover); }
-  .fold { width: 14px; flex: none; color: var(--muted); cursor: pointer; user-select: none; text-align: center; }
+  #ctxmenu div.danger { color: var(--danger); }
   .handle { flex: none; color: var(--muted); cursor: grab; user-select: none; opacity: 0; font-size: 12px; padding-top: 2px; }
   .row:hover .handle { opacity: 1; }
   .text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
@@ -67,14 +67,12 @@
   .archived .pile { filter: grayscale(.8); opacity: .6; }
   .comment > .row > .text { color: var(--comment); font-style: italic; }
   .done .text, .done .text a { color: var(--done) !important; }
-  .done > .row > .text { text-decoration: line-through; text-decoration-color: var(--done); }
   .archived .text, .archived .text a { color: var(--done) !important; }
   /* En espera se hereda: todo lo que hay dentro del bloque también se tiñe. */
   .waiting .row > .text, .waiting .row > .text a { color: var(--wait); }
   .wait-icon { width: 16px; height: 16px; flex: none; margin-top: 3px; image-rendering: pixelated; -webkit-user-drag: none; }
   .top > .row > .wait-icon { margin-top: 0; }
   .row input.edit { font-weight: inherit; font-size: inherit; }
-  .top.done > .row > .text { text-decoration: none; }
 
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
@@ -536,7 +534,8 @@ function renderNode(n, parent, depth, showAll = false) {
   const kids = visible(n);
   const all = showAll || lineMatches(n);
   const shownKids = query ? kids.filter(c => all || subtreeMatches(c)) : kids;
-  const folded = !query && kids.length > 0 && isCollapsed(n);   // al buscar, todo desplegado
+  // Solo los bloques (nivel 0) se recogen; al buscar, todo desplegado.
+  const folded = depth === 0 && !query && kids.length > 0 && isCollapsed(n);
   const wrap = el("div", "node");
   wrap.dataset.id = n.id;
   if (depth === 0) wrap.classList.add("top");
@@ -568,9 +567,7 @@ function renderNode(n, parent, depth, showAll = false) {
     handle.title = "Arrastrar para reordenar";
     handle.onmousedown = () => { row.draggable = true; };
     handle.onmouseup = () => { row.draggable = false; };
-    const fold = el("span", "fold", kids.length ? (folded ? "▸" : "▾") : "");
-    fold.onclick = toggleFold;
-    row.append(handle, fold);
+    row.append(handle);
   }
 
   if (isTask(n)) {
@@ -590,7 +587,8 @@ function renderNode(n, parent, depth, showAll = false) {
     const text = el("span", "text");
     let shown = withoutFold(n.text).replace(WAIT_RE, "");
     if (isTask(n)) shown = shown.replace(TASK_RE, "").replace(DONE_RE, "").trimStart();
-    else if (!isComment(n)) shown = shown.trimStart();
+    else if (isComment(n)) shown = shown.replace(/^\*\s*/, "");
+    else shown = shown.trimStart();
     linkify(text, shown || " ");
     text.ondblclick = () => { editing = { node: n, isNew: false }; render(); };
     row.append(text);
@@ -617,6 +615,11 @@ function renderNode(n, parent, depth, showAll = false) {
       const archived = parent === rootR;
       items.unshift([archived ? "Desarchivar bloque" : "Archivar bloque", () => toggleArchive(n)]);
     }
+    items.push(["Borrar", () => {
+      if (visible(n).length && !confirm("Esta línea tiene contenido dentro. ¿Borrarla con todo?")) return;
+      removeFrom(parent, n);
+      changed();
+    }, "danger"]);
     showMenu(e.clientX, e.clientY, items);
   });
 
@@ -711,8 +714,8 @@ function endDrag() {
 // ---------- Menú contextual ----------
 const menu = document.getElementById("ctxmenu");
 function showMenu(x, y, items) {
-  menu.replaceChildren(...items.map(([label, action]) => {
-    const item = el("div", null, label);
+  menu.replaceChildren(...items.map(([label, action, cls]) => {
+    const item = el("div", cls, label);
     item.onclick = () => { hideMenu(); action(); };
     return item;
   }));
@@ -766,12 +769,14 @@ function makeEditor(n, parent) {
   };
 
   input.onkeydown = e => {
+    // WebKitGTK 4.1 entrega Shift+Tab (ISO_Left_Tab) con key "Unidentified": miramos también code.
+    const tab = e.key === "Tab" || e.code === "Tab";
     if (e.key === "Enter") {
       e.preventDefault();
       finish(true);
     } else if (e.key === "Escape") {
       finish(false);
-    } else if (e.key === "Tab" && !e.shiftKey) {
+    } else if (tab && !e.shiftKey) {
       e.preventDefault();
       const sibs = parent.children;
       let i = sibs.indexOf(n) - 1;
@@ -785,7 +790,7 @@ function makeEditor(n, parent) {
       insertBeforeTrailingBlanks(prev, n);
       setCollapsed(prev, false);
       done = true; render();
-    } else if (e.key === "Tab" && e.shiftKey) {
+    } else if (tab && e.shiftKey) {
       e.preventDefault();
       if (parent === rootA || parent === rootR) return;
       const grand = findParent(parent);
