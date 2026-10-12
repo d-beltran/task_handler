@@ -40,6 +40,17 @@ Proyecto Atlas (app móvil)
         - Beta con 20 usuarios
         * Fecha objetivo: finales de noviembre
 
+Hacer un trabajo
+    - Hacer lo otro
+
+    * Hacerlo bien
+    Informe trimestral
+        - [ HECHO ] Recopilar métricas
+        - Redactar resumen
+        * Plantilla en /home/dani/Documentos/plantilla_informe.odt
+
+
+
 ==================== ARCHIVADO ====================
 
 Hacer un trabajo [ ARCHIVADO 09/10/2026 ]

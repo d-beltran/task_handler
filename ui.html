@@ -175,9 +175,10 @@ function parse(text) {
   unit = unit || "    ";
 }
 
-function serialize() {
+// `lineOf` (opcional): se rellena con el número de línea de cada nodo, por id.
+function serialize(lineOf = null) {
   const out = [];
-  const emit = n => { out.push(n.blank ? "" : n.indent + n.text); n.children.forEach(emit); };
+  const emit = n => { lineOf?.set(n.id, out.length); out.push(n.blank ? "" : n.indent + n.text); n.children.forEach(emit); };
   normalizeSpacing(rootA); normalizeSpacing(rootR);
   rootA.children.forEach(emit);
   if (rootR.children.length) {
@@ -611,10 +612,10 @@ function renderNode(n, parent, depth, showAll = false) {
   }
 
   const add = el("button", "add", "+");
-  add.title = "Añadir una tarea dentro";
+  add.title = "Añadir una línea dentro";
   add.onclick = () => {
     const childIndent = kids.length ? kids[0].indent : n.indent + unit;
-    const c = mk(childIndent, "- ");
+    const c = mk(childIndent, "");
     insertBeforeTrailingBlanks(n, c);
     setCollapsed(n, false);
     editing = { node: c, isNew: true }; render();
@@ -921,12 +922,37 @@ setInterval(async () => {
 }, 2000);
 
 // ---------- Botones ----------
-let rawMode = false;
+let rawMode = false, treeScroll = 0;
+// Primera línea del árbol visible bajo la cabecera, para abrir el TXT a esa altura.
+function topVisibleId() {
+  const headerBottom = document.querySelector("header").getBoundingClientRect().bottom;
+  const row = [...document.querySelectorAll("#tree .row")].find(r => r.getBoundingClientRect().bottom > headerBottom);
+  return row && Number(row.parentElement.dataset.id);
+}
 function setRaw(on) {
+  const id = on ? topVisibleId() : null;
   rawMode = on;
+  if (on) treeScroll = window.scrollY;
   document.getElementById("tree").classList.toggle("hidden", on);
   document.getElementById("rawview").classList.toggle("hidden", !on);
-  if (on) { const t = document.getElementById("raw"); t.value = serialize(); t.focus(); }
+  if (on) {
+    const t = document.getElementById("raw"), lineOf = new Map();
+    t.value = serialize(lineOf);
+    window.scrollTo(0, 0);
+    const line = lineOf.get(id) || 0;
+    const pos = t.value.split("\n").slice(0, line).reduce((p, l) => p + l.length + 1, 0);
+    // Altura del texto anterior a esa línea (contando las que se parten): se mide
+    // con el textarea encogido, así scrollHeight es solo lo que ocupa ese trozo.
+    const full = t.value, height = t.style.height;
+    t.value = full.slice(0, pos - 1); t.style.height = "0";
+    const offset = pos ? t.scrollHeight - parseFloat(getComputedStyle(t).paddingBottom) : 0;
+    t.value = full; t.style.height = height;
+    t.setSelectionRange(pos, pos);
+    t.focus({ preventScroll: true });
+    t.scrollTop = offset - parseFloat(getComputedStyle(t).paddingTop);
+  } else {
+    window.scrollTo(0, treeScroll);
+  }
 }
 document.getElementById("btn-raw").onclick = () => setRaw(!rawMode);
 document.getElementById("raw-cancel").onclick = () => setRaw(false);
