@@ -51,29 +51,32 @@
   input[type=checkbox]:checked { background: var(--done); border-color: var(--done); }
   input[type=checkbox]:checked::after { content: ""; position: absolute; left: 3.5px; top: 0.5px; width: 4px; height: 8px;
                                         border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-  .row .edit { flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--accent);
-               border-radius: 4px; padding: 0 4px; outline: none; resize: none; overflow: hidden; display: block;
-               white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+  /* El editor se ve igual que el texto (sin recuadro): como escribir en un bloc de notas. */
+  .row .edit { flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent; border: none;
+               border-radius: 0; padding: 0; margin: 0; outline: none; resize: none; overflow: hidden; display: block;
+               white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; caret-color: var(--accent); }
+  .row:has(.edit) { background: var(--hover); }
   .arch-date { flex: none; margin-left: 10px; color: var(--muted); font-size: 11px; font-weight: 400; opacity: .7; }
   .add { flex: none; opacity: 0; border: none; padding: 0 6px; color: var(--muted); }
   .row:hover .add { opacity: 1; }
 
   .top > .row { margin-top: 12px; align-items: center; }
-  .top > .row > .text { font-weight: 600; font-size: 16px; }
+  .top > .row > .text, .top > .row > .edit { font-weight: 600; font-size: 16px; }
   .top > .children { margin-left: 27px; }
   .pile { width: 48px; height: 48px; flex: none; cursor: pointer; user-select: none;
           image-rendering: pixelated; transition: transform .12s; }
   .pile:hover { transform: translateY(-2px) rotate(-3deg); }
   .pile:active { cursor: grabbing; }
   .archived .pile { filter: grayscale(.8); opacity: .6; }
-  .comment > .row > .text { color: var(--comment); font-style: italic; }
-  .done .text, .done .text a { color: var(--done) !important; }
-  .archived .text, .archived .text a { color: var(--done) !important; }
+  .comment > .row > .text, .comment > .row > .edit { color: var(--comment); font-style: italic; }
+  /* El "* " de los comentarios ocupa su sitio pero no se ve: así el texto no se mueve al editar. */
+  .ghost { visibility: hidden; user-select: none; }
+  .done .text, .done .text a, .done > .row > .edit { color: var(--done) !important; }
+  .archived .text, .archived .text a, .archived .edit { color: var(--done) !important; }
   /* En espera se hereda: todo lo que hay dentro del bloque también se tiñe. */
-  .waiting .row > .text, .waiting .row > .text a { color: var(--wait); }
+  .waiting .row > .text, .waiting .row > .text a, .waiting .row > .edit { color: var(--wait); }
   .wait-icon { width: 16px; height: 16px; flex: none; margin-top: 3px; image-rendering: pixelated; -webkit-user-drag: none; }
   .top > .row > .wait-icon { margin-top: 0; }
-  .row .edit { font-weight: inherit; font-size: inherit; }
   .top.done > .row > .text { text-decoration: none; }
 
   a { color: var(--accent); text-decoration: none; }
@@ -105,8 +108,10 @@
     <div id="noresults" class="hidden">Nada coincide con la búsqueda.</div>
     <div id="archive-head"></div>
     <div id="archived"></div>
-    <p class="hint">Doble clic en una línea para editarla · Enter: guardar la línea · Tab / Shift+Tab: indentar ·
-      Esc: cancelar · Vaciar una línea la borra · Clic en el icono de un proyecto: desplegar/recoger · Mantén y arrastra el icono (o ⠿) para reordenar · Clic derecho en una línea para ponerla en espera · Clic derecho en la cabecera de un bloque para archivarlo · Ctrl+F: buscar · Ctrl+Z: deshacer · Ctrl+Shift+Z: rehacer</p>
+    <p class="hint">Clic en una línea para escribir en ella · Enter: línea nueva (parte la línea donde está el cursor) ·
+      ↑ / ↓: cambiar de línea · Backspace al principio / Supr al final: unir con la línea de al lado ·
+      Escribir «- » al principio: convertir en tarea · Backspace al principio: quitar el reloj de espera o el checkbox ·
+      Tab / Shift+Tab: indentar · Esc: dejar de editar · Vaciar una línea la borra · Clic en el icono de un proyecto: desplegar/recoger · Mantén y arrastra el icono (o ⠿) para reordenar · Clic derecho en una línea para ponerla en espera · Clic derecho en la cabecera de un bloque para archivarlo · Ctrl+F: buscar · Ctrl+Z: deshacer · Ctrl+Shift+Z: rehacer</p>
   </div>
   <div id="dropline" class="hidden"></div>
   <div id="ctxmenu" class="hidden"></div>
@@ -537,7 +542,68 @@ function render() {
   document.getElementById("noresults").classList.toggle("hidden", !query || total > 0);
   window.scrollTo(0, scroll);
   const input = document.querySelector(".edit");
-  if (input) { input.oninput(); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  if (input) {
+    input.oninput();
+    input.focus();
+    const c = editing.caret == null ? input.value.length
+            : Math.max(0, Math.min(editing.caret - input.hiddenLen, input.value.length));
+    input.setSelectionRange(c, c);
+    delete editing.caret;
+  }
+}
+
+// Texto que se ve en la línea (sin "- ", marcas, etc.) y texto que se edita (el del TXT sin marcas internas).
+function displayText(n) {
+  let shown = withoutFold(n.text).replace(WAIT_RE, "").replace(ARCH_RE, "");
+  if (isTask(n)) shown = shown.replace(TASK_RE, "").replace(DONE_RE, "").trimStart();
+  else if (isComment(n)) shown = shown.replace(/^\*\s*/, "");
+  else shown = shown.trimStart();
+  return shown;
+}
+const editValue = n => withoutFold(n.text).replace(ARCH_RE, "");
+// Lo que hay antes del texto visible: "- ", "* ", "[ HECHO ]", "[ EN ESPERA ]"…
+const PREFIX_RE = /^\s*[-*]?\s*(?:\[\s*(?:HECHO|EN\s+ESPERA)\s*\]\s*)*/i;
+const prefixLen = v => v.match(PREFIX_RE)[0].length;
+
+function findNode(id, node = null) {
+  for (const root of node ? [node] : [rootA, rootR]) {
+    for (const c of root.children) {
+      if (c.id === id) return c;
+      const f = findNode(id, c);
+      if (f) return f;
+    }
+  }
+  return null;
+}
+// Línea anterior (dir = -1) o siguiente (dir = 1) tal y como se ven en pantalla.
+function neighbour(n, dir) {
+  const ids = [...document.querySelectorAll("#tree .node")].map(w => Number(w.dataset.id));
+  const id = ids[ids.indexOf(n.id) + dir];
+  return id ? findNode(id) : null;
+}
+// Posición (en caracteres) del punto (x, y) dentro de `container`, o null.
+function caretOffsetIn(container, x, y) {
+  let node, off;
+  if (document.caretPositionFromPoint) {
+    const p = document.caretPositionFromPoint(x, y);
+    if (!p) return null;
+    node = p.offsetNode; off = p.offset;
+  } else if (document.caretRangeFromPoint) {
+    const r = document.caretRangeFromPoint(x, y);
+    if (!r) return null;
+    node = r.startContainer; off = r.startOffset;
+  } else return null;
+  if (!container.contains(node)) return null;
+  const r = document.createRange();
+  r.setStart(container, 0); r.setEnd(node, off);
+  return r.toString().length;
+}
+// Pasa a editar `node` (guardando antes la línea que se estuviera editando), con el cursor en `caret`.
+function startEditing(node, caret = null) {
+  if (editing?.node === node) return;
+  editing?.finish?.(true);
+  editing = { node, isNew: false, caret };
+  render();
 }
 
 // `showAll`: algún antepasado coincide con la búsqueda, así que se muestra todo su contenido.
@@ -585,20 +651,30 @@ function renderNode(n, parent, depth, showAll = false) {
     row.append(cb);
   }
 
-  if (editing && editing.node === n) {
+  const isEditing = editing && editing.node === n;
+  // La marca [ EN ESPERA ] no se ve al editar: el reloj se queda en su lugar.
+  if (isWaiting(n) && !isDone(n)) {
+    const icon = el("img", "wait-icon"); icon.src = WAIT_URL; icon.alt = ""; icon.title = "En espera";
+    row.append(icon);
+  }
+  if (isEditing) {
     row.append(makeEditor(n, parent));
   } else {
-    if (isWaiting(n) && !isDone(n)) {
-      const icon = el("img", "wait-icon"); icon.src = WAIT_URL; icon.alt = ""; icon.title = "En espera";
-      row.append(icon);
-    }
     const text = el("span", "text");
-    let shown = withoutFold(n.text).replace(WAIT_RE, "").replace(ARCH_RE, "");
-    if (isTask(n)) shown = shown.replace(TASK_RE, "").replace(DONE_RE, "").trimStart();
-    else if (isComment(n)) shown = shown.replace(/^\*\s*/, "");
-    else shown = shown.trimStart();
+    const shown = displayText(n);
+    // En los comentarios (no en espera, que ocultan su marca al editar) el "* " se pinta invisible.
+    const ghost = isComment(n) && !isWaiting(n) ? n.text.match(/^\*\s*/)[0] : "";
+    if (ghost) text.append(el("span", "ghost", ghost));
     linkify(text, shown || " ");
-    text.ondblclick = () => { editing = { node: n, isNew: false }; render(); };
+    // Un clic pone el cursor justo donde se ha pinchado. Se usa mousedown (y no click) para
+    // que el editor anterior no se cierre y vuelva a pintar todo antes de que llegue el clic.
+    text.addEventListener("mousedown", e => {
+      if (e.button !== 0 || e.target.closest("a")) return;
+      e.preventDefault();
+      const value = editValue(n), off = caretOffsetIn(text, e.clientX, e.clientY);
+      const start = shown ? value.indexOf(shown) : -1;
+      startEditing(n, off == null || start < 0 ? null : start + Math.max(0, off - ghost.length));
+    });
     row.append(text);
     if (depth === 0 && parent === rootR && archivedDate(n)) {
       const date = el("span", "arch-date", archivedDate(n));
@@ -764,32 +840,79 @@ function makeEditor(n, parent) {
   // Textarea que crece con el texto, para que se vea igual que sin editar (varias líneas si hace falta).
   const input = el("textarea", "edit");
   input.rows = 1;
-  input.value = withoutFold(n.text).replace(ARCH_RE, "");
+  // En las tareas y en las líneas en espera, "- " y las marcas ([ HECHO ], [ EN ESPERA ]) no se ven
+  // al editar: ya están el checkbox y el reloj.
+  const v0 = editValue(n);
+  let hidden = isTask(n) || isWaiting(n) ? v0.slice(0, prefixLen(v0)) : "";
+  if (hidden && !/\s$/.test(hidden)) hidden += " ";
+  const H = hidden.length;
+  input.hiddenLen = H;
+  input.value = v0.slice(prefixLen(v0) * (H > 0));
+  const full = () => hidden + input.value;   // la línea tal y como va al TXT
+  const resize = () => {
+    // El aspecto de comentario sigue a lo que se escribe (poner o quitar el "*" al principio).
+    input.closest(".node")?.classList.toggle("comment", full().startsWith("*"));
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + "px";
+  };
   input.oninput = () => {
     if (/[\r\n]/.test(input.value)) {   // una tarea es una sola línea: los saltos pegados pasan a espacios
       const pos = input.selectionStart;
       input.value = input.value.replace(/\r?\n|\r/g, " ");
       input.setSelectionRange(pos, pos);
     }
-    input.style.height = "auto";
-    input.style.height = input.scrollHeight + 2 + "px";
+    // Escribir "-" (o "- ") al principio convierte la línea en tarea al momento.
+    if (!done && !TASK_RE.test(hidden) && !hidden.startsWith("*") && TASK_RE.test(input.value)) {
+      const rest = input.value.replace(/^-\s?/, "");
+      const pos = Math.max(0, input.selectionStart - (input.value.length - rest.length));
+      n.text = withMarks("- " + hidden + rest);
+      editing.caret = 2 + H + pos;
+      done = true; render();
+      return;
+    }
+    resize();
+  };
+
+  // Deshacer / rehacer propio de la línea (el nativo del cuadro de texto no funciona en WebKitGTK).
+  // Se agrupa lo que se escribe seguido; un espacio o una pausa de un segundo empiezan otro paso.
+  const hist = [], fut = [];
+  let last = null, lastTime = 0;
+  const snap = () => ({ v: input.value, c: input.selectionStart });
+  input.addEventListener("focus", () => { if (!last) last = snap(); });
+  input.addEventListener("input", e => {
+    if (done) return;
+    const now = Date.now();
+    if (!hist.length || now - lastTime > 1000 || e.data === " " || !e.data) hist.push(last);
+    lastTime = now;
+    fut.length = 0;
+    last = snap();
+  });
+  const restore = (from, to) => {
+    to.push(snap());
+    last = from.pop();
+    input.value = last.v;
+    input.setSelectionRange(last.c, last.c);
+    lastTime = 0;
+    resize();
   };
   const wasFolded = isCollapsed(n), archDate = archivedDate(n);
   let done = false;
   const withMarks = v => (archDate ? `${v} [ ARCHIVADO ${archDate} ]` : v) + (wasFolded ? ` ${FOLD_MARK}` : "");
-  const valueWithFold = () => withMarks(input.value);
+  const valueWithFold = () => withMarks(full());
+  // Una línea con solo "- ", "* " o marcas cuenta como vacía.
+  const isEmpty = v => v.slice(prefixLen(v)).trim() === "";
   const finish = (save) => {
     if (done) return false;
     done = true;
-    const value = input.value.replace(/\s+$/, "");
+    const value = full().replace(/\s+$/, "");
     const wasNew = editing.isNew;
     editing = null;
     if (!save) {
-      if (wasNew) { removeFrom(parent, n); render(); }
-      else changed();   // por si se ha cambiado la indentación con Tab
+      if (wasNew) removeFrom(parent, n);
+      changed();   // por si se ha cambiado la indentación con Tab, o la línea nueva ya se había guardado
       return false;
     }
-    if (value.trim() === "") {
+    if (isEmpty(value)) {
       if (visible(n).length && !confirm("Esta línea tiene contenido dentro. ¿Borrarla con todo?")) { render(); return false; }
       removeFrom(parent, n);
       changed();
@@ -800,12 +923,108 @@ function makeEditor(n, parent) {
     return true;
   };
 
+  editing.finish = finish;
+
+  // Termina esta edición sin pasar por finish() y aplica el cambio ya hecho en el árbol.
+  const handOver = (next) => { done = true; editing = next; changed(); };
+
+  // Enter: parte la línea por el cursor, como en un bloc de notas. La línea nueva no hereda "- " ni "* ".
+  const splitLine = () => {
+    const v = full();
+    const before = v.slice(0, input.selectionStart + H).replace(/\s+$/, "");
+    const after = v.slice(input.selectionEnd + H).trimStart();
+    if (isEmpty(before) && isEmpty(after)) { input.value = ""; finish(true); return; }   // Enter en línea vacía: salir
+    if (isEmpty(before)) {
+      // Cursor al principio: se abre una línea vacía encima.
+      n.text = valueWithFold();
+      const c = mk(n.indent, "");
+      parent.children.splice(parent.children.indexOf(n), 0, c);
+      handOver({ node: c, isNew: true, caret: 0 });
+      return;
+    }
+    n.text = withMarks(before);
+    const c = mk(n.indent, after);
+    const kids = visible(n);
+    if (parent === rootA || parent === rootR || (kids.length && !isCollapsed(n))) {
+      // Tras la cabecera de un bloque, o una línea con contenido dentro: primera línea de dentro.
+      c.indent = kids.length ? kids[0].indent : n.indent + unit;
+      n.children.unshift(c);
+      setCollapsed(n, false);
+    } else {
+      parent.children.splice(parent.children.indexOf(n) + 1, 0, c);
+    }
+    handOver({ node: c, isNew: after === "", caret: 0 });
+  };
+
+  // ¿Está el cursor en la primera / última fila visual del cuadro (la línea puede ocupar varias)?
+  const caretRows = () => {
+    const v = input.value, s = input.selectionStart, eSel = input.selectionEnd, h = input.style.height;
+    const measure = str => { input.value = str; input.style.height = "0"; return input.scrollHeight; };
+    const one = measure("x"), upTo = measure(v.slice(0, s) || "x"), all = measure(v || "x");
+    input.value = v; input.style.height = h; input.setSelectionRange(s, eSel);
+    return { first: upTo <= one, last: upTo >= all };
+  };
+
   input.onkeydown = e => {
     // WebKitGTK 4.1 entrega Shift+Tab (ISO_Left_Tab) con key "Unidentified": miramos también code.
     const tab = e.key === "Tab" || e.code === "Tab";
-    if (e.key === "Enter") {
+    const collapsed = input.selectionStart === input.selectionEnd;
+    const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+    const isUndo = mod && k === "z" && !e.shiftKey, isRedo = mod && ((k === "z" && e.shiftKey) || k === "y");
+    if (isUndo || isRedo) {
       e.preventDefault();
-      finish(true);
+      const [from, to] = isUndo ? [hist, fut] : [fut, hist];
+      if (from.length) { restore(from, to); return; }
+      // Nada que deshacer en esta línea: se deshace el último cambio del fichero (p. ej. un Enter).
+      done = true; editing = null;
+      if (isUndo) undoRedo(undoStack, redoStack, "deshacer");
+      else undoRedo(redoStack, undoStack, "rehacer");
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      splitLine();
+    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const dir = e.key === "ArrowUp" ? -1 : 1;
+      const rows = caretRows();
+      if (dir < 0 ? !rows.first : !rows.last) return;
+      const target = neighbour(n, dir);
+      if (!target) return;
+      e.preventDefault();
+      const col = Math.max(0, input.selectionStart + H - prefixLen(full()));
+      const tv = editValue(target);
+      startEditing(target, prefixLen(tv) + col);
+    } else if (e.key === "Backspace" && collapsed && input.selectionStart === 0 && H) {
+      // Al principio de la línea, Backspace quita el reloj ([ EN ESPERA ] entero) y, si no hay
+      // reloj, el checkbox (con el "- " y el [ HECHO ] que van por debajo).
+      e.preventDefault();
+      let keep;
+      if (WAIT_RE.test(hidden)) {
+        keep = hidden.replace(WAIT_RE, "");
+        keep = keep.trim() === "" ? "" : keep.trimStart().replace(/\s*$/, " ");
+      } else keep = hidden.replace(/^-\s*/, "").replace(DONE_RE, "").trimStart();
+      n.text = withMarks(keep + input.value);
+      handOver({ node: n, isNew: editing.isNew, caret: keep.length });
+    } else if (e.key === "Backspace" && collapsed && input.selectionStart === 0) {
+      // Une esta línea al final de la anterior (si no tiene nada dentro).
+      if (visible(n).length) return;
+      const prev = neighbour(n, -1);
+      if (!prev) return;
+      e.preventDefault();
+      const pv = editValue(prev);
+      removeFrom(parent, n);
+      const folded = isCollapsed(prev), date = archivedDate(prev);
+      prev.text = pv + full().replace(/\s+$/, "") + (date ? ` [ ARCHIVADO ${date} ]` : "");
+      if (folded) setCollapsed(prev, true);
+      handOver({ node: prev, isNew: false, caret: pv.length });
+    } else if (e.key === "Delete" && collapsed && input.selectionStart === input.value.length) {
+      // Trae la línea siguiente al final de esta (si no tiene nada dentro).
+      const next = neighbour(n, 1);
+      if (!next || visible(next).length) return;
+      e.preventDefault();
+      const pos = full().length, nv = editValue(next);
+      // De una tarea solo se trae el texto, no el "- " ni sus marcas.
+      n.text = withMarks(full() + (isTask(next) ? nv.slice(prefixLen(nv)) : nv.trimStart()));
+      removeFrom(findParent(next), next);
+      handOver({ node: n, isNew: false, caret: pos });
     } else if (e.key === "Escape") {
       finish(false);
     } else if (tab && !e.shiftKey) {
@@ -821,6 +1040,7 @@ function makeEditor(n, parent) {
       reindent(n, pk.length ? pk[0].indent : prev.indent + unit);
       insertBeforeTrailingBlanks(prev, n);
       setCollapsed(prev, false);
+      editing.caret = input.selectionStart + H;
       done = true; render();
     } else if (tab && e.shiftKey) {
       e.preventDefault();
@@ -830,6 +1050,7 @@ function makeEditor(n, parent) {
       removeFrom(parent, n);
       reindent(n, parent.indent);
       grand.children.splice(grand.children.indexOf(parent) + 1, 0, n);
+      editing.caret = input.selectionStart + H;
       done = true; render();
     }
   };

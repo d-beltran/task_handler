@@ -28,12 +28,17 @@ Un gestor de notas minimalista para Ubuntu que trabaja directamente sobre un fic
 
 | Atajo | Acción |
 |---|---|
-| Doble clic | Editar una línea |
-| Enter / Esc | Guardar / cancelar la edición |
+| Clic | Escribir en una línea (el cursor queda donde pinchas) |
+| Enter | Línea nueva de texto normal (parte la línea por el cursor) |
+| ↑ / ↓ | Pasar a la línea de arriba / abajo |
+| Backspace al principio / Supr al final | Unir con la línea anterior / siguiente |
+| `-` al principio de una línea | Convertirla en tarea (checkbox) |
+| Backspace al principio de una línea en espera / tarea | Quitar el reloj / el checkbox |
+| Esc | Dejar de editar |
 | Tab / Shift+Tab | Indentar / desindentar la línea que editas |
 | Vaciar una línea | Borrarla |
 | Ctrl+F | Buscar (Esc para limpiar) |
-| Ctrl+Z / Ctrl+Shift+Z (o Ctrl+Y) | Deshacer / rehacer |
+| Ctrl+Z / Ctrl+Shift+Z (o Ctrl+Y) | Deshacer / rehacer (también mientras escribes) |
 | Ctrl+ / Ctrl− | Zoom |
 | Ctrl+Q | Cerrar |
 
