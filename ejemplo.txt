@@ -1,7 +1,9 @@
 Reunión con cliente X
     * Martes 10:00
+    Hablaremos del tiempo
+
     - Preparar demo
-    - Este es un texto muy largo que necesito que se salga de los márgenes para verificar que colapsa adecuadamente
+    [ EN ESPERA ] Este es un texto muy largo que necesito que se salga de los márgenes para verificar que colapsa adecuadamente
 
 Migración base de datos
     * Avisar al equipo de soporte
@@ -49,9 +51,95 @@ Hacer un trabajo
         - Redactar resumen
         * Plantilla en /home/dani/Documentos/plantilla_informe.odt
 
+Mudanza de oficina
+    * Fecha prevista: 15 de diciembre
+    * Contacto de la agencia: ver ~/Documentos/mudanza/contactos.txt
+    - [ HECHO ] Elegir oficina nueva
+    - [ HECHO ] Firmar contrato de alquiler
+    - Pedir presupuestos de mudanza
+        - Empresa A
+        - Empresa B
+        - Empresa C
+    - Contratar internet en la oficina nueva
+    - Etiquetar cajas por equipos
+    - Avisar a proveedores del cambio de dirección
+    - Dar de baja la alarma de la oficina vieja
+    - Organizar la comida de despedida
+
+Plan de formación del equipo (largo, para probar el scroll al arrastrar)
+    * Una sesión por semana, los jueves a las 16:00
+    * Material compartido: https://ejemplo.com/formacion
+    Semana 1 · Git avanzado
+        - [ HECHO ] Rebase interactivo
+        - [ HECHO ] Resolver conflictos
+        - Bisect para encontrar errores
+    Semana 2 · Testing
+        - Tests unitarios
+        - Tests de integración
+        - Cobertura: qué medir y qué no
+    Semana 3 · Bases de datos
+        - Índices
+        - Transacciones
+        - Migraciones sin parar el servicio
+    Semana 4 · Seguridad
+        - Gestión de secretos
+        - Dependencias vulnerables
+        * invitar al equipo de seguridad
+    Semana 5 · Rendimiento
+        - Perfilado
+        - Cachés
+        - Consultas lentas
+    Semana 6 · Despliegues
+        - Integración continua
+        - Despliegues graduales
+        - Volver atrás rápido
+    Semana 7 · Observabilidad
+        - Logs útiles
+        - Métricas
+        - Alertas que no molesten
+    Semana 8 · Revisión de código
+        - Qué mirar en una revisión
+        - Cómo dar feedback
+    Semana 9 · Documentación
+        - README que se lean
+        - Decisiones de arquitectura
+    Semana 10 · Cierre
+        - Encuesta de satisfacción
+        - Plan para el año que viene
+    - Reservar la sala grande todos los jueves
+    - Pedir presupuesto para cursos externos
+    - Preparar certificados de asistencia
+
+Lista de la compra
+    - Café
+    - Leche
+    - Pan
+    - [ HECHO ] Fruta
+    - Pilas para el ratón
+    - Bolsas de basura
+    - Papel de impresora
+
+Ideas sueltas
+    * Cosas que no son tareas todavía
+    Probar una herramienta de notas compartidas
+    Montar un canal de dudas para nuevos
+    [ EN ESPERA ] Hacer un hackathon interno en primavera
+    Revisar si merece la pena cambiar de proveedor de correo
+
+Viaje a la conferencia
+    * Del 3 al 6 de noviembre, Lisboa
+    - [ HECHO ] Comprar entradas
+    - Reservar hotel
+    - Reservar vuelos
+    - Preparar la charla
+        - Guion
+        - Diapositivas
+        - Ensayo con el equipo
+    - Pedir dietas a administración
 
 
-==================== ARCHIVADO ====================
+
+===================== ARCHIVADO ====================
 
 Hacer un trabajo [ ARCHIVADO 09/10/2026 ]
     - Hacer lo otro
