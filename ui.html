@@ -37,7 +37,7 @@
   .row { display: flex; align-items: flex-start; gap: 6px; padding: 1px 4px; border-radius: 5px; }
   .row:hover { background: var(--hover); }
   .node.dragging { opacity: .4; }
-  #dropline { position: fixed; height: 2px; background: var(--drop); border-radius: 1px; pointer-events: none; z-index: 5; }
+  #dropline { position: absolute; height: 2px; background: var(--drop); border-radius: 1px; pointer-events: none; z-index: 5; }
   #ctxmenu { position: fixed; z-index: 10; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
              box-shadow: 0 4px 16px rgba(0,0,0,.25); padding: 4px; min-width: 160px; font-size: 13px; }
   #ctxmenu div { padding: 5px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
@@ -62,7 +62,7 @@
   .top > .row { margin-top: 12px; align-items: center; }
   .top > .row > .text { font-weight: 600; font-size: 16px; }
   .top > .children { margin-left: 27px; }
-  .pile { width: 48px; height: 48px; flex: none; cursor: pointer; user-select: none; -webkit-user-drag: none;
+  .pile { width: 48px; height: 48px; flex: none; cursor: pointer; user-select: none;
           image-rendering: pixelated; transition: transform .12s; }
   .pile:hover { transform: translateY(-2px) rotate(-3deg); }
   .pile:active { cursor: grabbing; }
@@ -569,17 +569,14 @@ function renderNode(n, parent, depth, showAll = false) {
     // El icono del proyecto: clic = desplegar/recoger, mantener y arrastrar = mover.
     const pile = el("img", "pile");
     pile.src = pileFor(n);
-    pile.draggable = false;
+    pile.draggable = true;
     pile.title = `${countLines(n)} líneas · clic: ${folded ? "desplegar" : "recoger"} · arrastrar: mover`;
-    pile.onmousedown = () => { row.draggable = true; };
-    pile.onmouseup = () => { row.draggable = false; };
     pile.onclick = toggleFold;
     row.append(pile);
   } else {
     const handle = el("span", "handle", "⠿");
     handle.title = "Arrastrar para reordenar";
-    handle.onmousedown = () => { row.draggable = true; };
-    handle.onmouseup = () => { row.draggable = false; };
+    handle.draggable = true;
     row.append(handle);
   }
 
@@ -645,10 +642,13 @@ function renderNode(n, parent, depth, showAll = false) {
     drag = { node: n, parent };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", n.text);
+    // Se arrastra desde el icono / ⠿ (siempre arrastrables), pero la imagen es la fila entera.
+    const r = row.getBoundingClientRect();
+    e.dataTransfer.setDragImage(row, e.clientX - r.left, e.clientY - r.top);
     wrap.classList.add("dragging");
   });
   row.addEventListener("dragend", () => {
-    row.draggable = false; wrap.classList.remove("dragging");
+    wrap.classList.remove("dragging");
     endDrag();
   });
 
@@ -681,8 +681,13 @@ function dropTarget(y) {
 function updateDropLine(y) {
   const t = dropTarget(y);
   dropLine.classList.toggle("hidden", !t);
-  if (t) Object.assign(dropLine.style, { top: `${t.y - 1}px`, left: `${t.rect.left}px`, width: `${t.rect.width}px` });
+  // Coordenadas de documento (no de ventana): así la barra se mueve con el contenido al hacer scroll.
+  if (t) Object.assign(dropLine.style, { top: `${t.y + window.scrollY - 1}px`,
+                                         left: `${t.rect.left + window.scrollX}px`, width: `${t.rect.width}px` });
 }
+
+// El navegador también hace scroll por su cuenta al arrastrar cerca del borde: recalcular la barra.
+document.addEventListener("scroll", () => { if (drag && dragY !== null) updateDropLine(dragY); });
 
 // Auto-scroll: con el ratón cerca del borde superior / inferior de la ventana,
 // la página se desplaza en esa dirección (más rápido cuanto más cerca del borde).
